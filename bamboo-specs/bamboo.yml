@@ -1,9 +1,9 @@
 version: 2
 
 plan:
-  project-key: DEMO     # 프로젝트 키 (예: DEMO)
-  key: TEST              # 플랜 키 (예: TEST)
-  name: Test Artifact Job
+  project-key: TKP     # 프로젝트 키 (예: DEMO)
+  key: TEST3              # 플랜 키 (예: TEST)
+  name: test_pipieline
 
 stages:
   - name: Build and Create Artifact
