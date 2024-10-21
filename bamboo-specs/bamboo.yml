@@ -46,9 +46,22 @@ Show Variable:
         echo ${bamboo.PROJECT}
       description: Show Variable
   artifact-subscriptions: []
-Make Artifact:
-  key: MA
-  artifact-subscriptions: []
+Create Artifact:  # 기존 Make Artifact 항목을 변경
+  key: BUILD  # key 변경
+  description: Create test.txt Artifact
+  tasks:
+  - script:
+      interpreter: SHELL
+      scripts:
+      - |-
+        echo "This is a test file." > 	/atlassian/bamboo/data/test.txt
+      description: Create test.txt File
+  artifacts:
+    - name: Test Artifact
+      copy-pattern: "test.txt" 
+      location: "/atlassian/bamboo/data/"   
+  final-tasks:
+    - clean-working-directory    # 작업 디렉터리 정리
 variables:
   PROJECT: AD-A3-PKG-BF
 repositories: []
