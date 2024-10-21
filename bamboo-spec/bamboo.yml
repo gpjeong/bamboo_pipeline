@@ -1,4 +1,10 @@
 version: 2
+
+plan:
+  project-key: TKP	
+  key: TEST4
+  name: bamboo_artifact_test
+
 stages:
   - Build and Create Artifact
 stages:
