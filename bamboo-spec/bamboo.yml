@@ -1,10 +1,6 @@
 version: 2
-
-plan:
-  project-key: TKP     # 프로젝트 키 (예: DEMO)
-  key: TEST3              # 플랜 키 (예: TEST)
-  name: test_pipeline
-
+stages:
+  - Build and Create Artifact
 stages:
   - name: Build and Create Artifact
     jobs:
