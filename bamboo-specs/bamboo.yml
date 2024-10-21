@@ -1,27 +1,84 @@
+---
 version: 2
-
 plan:
-  project-key: TKP	
-  key: TEST4
-  name: bamboo_artifact_test
-
+  project-key: TKP
+  key: VAR
+  name: variable_test3
+  description: 변수 test용 plan
 stages:
-  - Build and Create Artifact
-stages:
-  - name: Build and Create Artifact
+- working directory:
+    description: working directory
+    manual: false
+    final: false
     jobs:
-      - key: BUILD
-        name: Create test.txt Artifact
-        tasks:
-          - script: 
-              description: Create test.txt File
-              script:
-                - echo "This is a test file." > test.txt
-
-        artifacts:
-          - name: Test Artifact
-            copy-pattern: "test.txt"   # 생성한 파일을 아티팩트로 저장
-            location: "."              # 현재 디렉터리에서 파일 찾기
-
-        final-tasks:
-          - clean-working-directory  # 빌드가 끝난 후 작업 디렉터리 정리
+    - Working Directory
+- Show Variable:
+    description: Show Variable
+    manual: false
+    final: false
+    jobs:
+    - Show Variable
+- Make Artifact:
+    manual: false
+    final: false
+    jobs:
+    - Make Artifact
+Working Directory:
+  key: JOB1
+  tasks:
+  - script:
+      interpreter: SHELL
+      scripts:
+      - |-
+        echo "##########작업 Directory 경로 출력##########"
+        echo ${bamboo.build.working.directory}
+      description: working directory
+  artifact-subscriptions: []
+Show Variable:
+  key: SV
+  description: Show Variable
+  tasks:
+  - script:
+      interpreter: SHELL
+      scripts:
+      - |-
+        echo "##########PROJECT 변수 출력##########"
+        echo ${bamboo.PROJECT}
+      description: Show Variable
+  artifact-subscriptions: []
+Make Artifact:
+  key: MA
+  artifact-subscriptions: []
+variables:
+  PROJECT: AD-A3-PKG-BF
+repositories: []
+# Remove line above if want to set repository with YAML file as primary repository of plan
+triggers: []
+branches:
+  create: manually
+  delete: never
+  link-to-jira: true
+notifications: []
+labels: []
+dependencies:
+  require-all-stages-passing: false
+  enabled-for-branches: true
+  block-strategy: none
+  plans: []
+other:
+  concurrent-build-plugin: system-default
+---
+version: 2
+plan:
+  key: TKP-VAR
+plan-permissions:
+- users:
+  - ad
+  permissions:
+  - view
+  - edit
+  - build
+  - clone
+  - admin
+  - view-configuration
+...
