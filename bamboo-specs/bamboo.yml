@@ -9,24 +9,27 @@ stages:
   - stage:
       name: Build
       jobs:
-        - job:
-            key: BUILD
-            name: Build Job
-            agent:
-              image: 'your-docker-image'  # Replace with a specific Docker image if needed
-            requirements:
-              - key: 'your-agent-requirements'  # Define specific agent requirements if necessary
+        - BUILD  # Reference the job key here instead of defining the job directly
 
-            tasks:
-              - script:
-                  - echo "Job Name: ${bamboo.buildPlanName}"
-                  - echo "Branch Name: ${bamboo.planRepository.branch}"
-                  - echo "GIT Committer: ${bamboo.repository.git.username}"  # Adjust if variables differ
-                  - echo "GIT Author: ${bamboo.repository.git.author}"  # Adjust if variables differ
+jobs:
+  - job:
+      key: BUILD
+      name: Build Job
+      agent:
+        image: 'your-docker-image'  # Replace with a specific Docker image if needed
+      requirements:
+        - key: 'your-agent-requirements'  # Define specific agent requirements if necessary
 
-              - artifact-download:
-                  name: Your Artifact Name
-                  destination: "./"  # Adjust as needed
+      tasks:
+        - script:
+            - echo "Job Name: ${bamboo.buildPlanName}"
+            - echo "Branch Name: ${bamboo.planRepository.branch}"
+            - echo "GIT Committer: ${bamboo.repository.git.username}"  # Adjust if variables differ
+            - echo "GIT Author: ${bamboo.repository.git.author}"  # Adjust if variables differ
+
+        - artifact-download:
+            name: Your Artifact Name
+            destination: "./"  # Adjust as needed
 
 triggers:
   - repository:  # This triggers builds on repository changes
