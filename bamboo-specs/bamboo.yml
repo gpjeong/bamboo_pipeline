@@ -2,96 +2,123 @@
 version: 2
 plan:
   project-key: TKP
-  key: VAR
-  name: variable_test3
-  description: 변수 test용 plan
-stages:
-- working directory:
-    description: working directory
-    manual: false
-    final: false
-    jobs:
-    - Working Directory
-- Show Variable:
-    description: Show Variable
-    manual: false
-    final: false
-    jobs:
-    - Show Variable
-- Make Artifact:
-    manual: false
-    final: false
-    jobs:
-    - Make Artifact
-Working Directory:
-  key: JOB1
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########작업 Directory 경로 출력##########"
-        echo ${bamboo.build.working.directory}
-      description: working directory
-  artifact-subscriptions: []
-Show Variable:
-  key: SV
-  description: Show Variable
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########PROJECT 변수 출력##########"
-        echo ${bamboo.PROJECT}
-      description: Show Variable
-  artifact-subscriptions: []
-Create Artifact:  # 기존 Make Artifact 항목을 변경
-  key: BUILD  # key 변경
-  description: Create test.txt Artifact
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "This is a test file." > 	/atlassian/bamboo/data/test.txt
-      description: Create test.txt File
-  artifacts:
-    - name: Test Artifact
-      copy-pattern: "test.txt" 
-      location: "/atlassian/bamboo/data/"   
-  final-tasks:
-    - clean-working-directory    # 작업 디렉터리 정리
+  key: CCC564
+  name: ccc_hmgcp_14
+
 variables:
-  PROJECT: AD-A3-PKG-BF
-repositories: []
-# Remove line above if want to set repository with YAML file as primary repository of plan
-triggers: []
-branches:
-  create: manually
-  delete: never
-  link-to-jira: true
-notifications: []
-labels: []
-dependencies:
-  require-all-stages-passing: false
-  enabled-for-branches: true
-  block-strategy: none
-  plans: []
-other:
-  concurrent-build-plugin: system-default
----
-version: 2
-plan:
-  key: TKP-VAR
-plan-permissions:
-- users:
-  - ad
-  permissions:
-  - view
-  - edit
-  - build
-  - clone
-  - admin
-  - view-configuration
-...
+  HMGTOOLS_PATH: "/home/android.architect/hmgcp_tools/tools"
+  DOCKER_IMAGE_NAME: "android-build-hmgcp_14_release"
+  PRE_JOB_RESULT: "UNKNOWN"
+  BUILD_JOB_NAME: "ccc_build_hmgcp_14"
+  BUILD_JOB_CONNECT_STANDARD_ARTIFACTORY: "hmgop.connect-standard-artifacts"
+  BUILD_JOB_CONNECT_WIDE_ARTIFACTORY: "hmgop.connect-wide-artifacts"
+  OS_VERSION: "14"
+  CURRENT_BUILD_RESULT: "UNKNOWN"
+  FAIL_JOB_NAME: ""
+  BUILD_JOB_CONNECT_STANDARD_RESULT: "UNKNOWN"
+  BUILD_JOB_CONNECT_STANDARD_BUILD_NUMBER: "0"
+  BUILD_JOB_CONNECT_WIDE_RESULT: "UNKNOWN"
+  BUILD_JOB_CONNECT_WIDE_BUILD_NUMBER: "0"
+
+stages:
+  - Preparation
+  - Build
+
+jobs:
+  - job:
+      key: PREP
+      name: Preparation Job
+      agent:
+        image: 'your-docker-image'  # Specify Docker image if needed
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                echo 'Preparation Start'
+                cd ${bamboo.HMGTOOLS_PATH}
+                ./ccc_prechecker.py -b ${bamboo.buildResultsUrl} -t ${bamboo.JIRA_ISSUE_KEY}
+                ./ccc_verified_resetter.py -t ${bamboo.JIRA_ISSUE_KEY}
+
+      final-tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                if [ "$?" -eq 0 ]; then
+                  export bamboo_PRE_JOB_RESULT="SUCCESS"
+                else
+                  export bamboo_PRE_JOB_RESULT="FAILURE"
+                fi
+
+  - job:
+      key: BUILD_CONNECT_STANDARD
+      name: Build Connect Standard
+      agent:
+        image: 'your-docker-image'
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                # Trigger the build
+                buildJobResult=$(./trigger_build.sh -j ${bamboo.BUILD_JOB_NAME} -k ${bamboo.JIRA_ISSUE_KEY} -m connect-standard -a ${bamboo.BUILD_JOB_CONNECT_STANDARD_ARTIFACTORY} -p ${bamboo.HMGTOOLS_PATH} -c ${bamboo.CLEAN} -t connect)
+                export bamboo_BUILD_JOB_CONNECT_STANDARD_RESULT=$buildJobResult
+                export bamboo_BUILD_JOB_CONNECT_STANDARD_BUILD_NUMBER=123  # Replace with actual build number retrieval logic
+                
+                if [ "$buildJobResult" != "SUCCESS" ]; then
+                  echo "Build connect standard job failed!"
+                  exit 1
+                fi
+
+  - job:
+      key: BUILD_CONNECT_WIDE
+      name: Build Connect Wide
+      agent:
+        image: 'your-docker-image'
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                # Trigger the build
+                buildJobResult=$(./trigger_build.sh -j ${bamboo.BUILD_JOB_NAME} -k ${bamboo.JIRA_ISSUE_KEY} -m connect-wide -a ${bamboo.BUILD_JOB_CONNECT_WIDE_ARTIFACTORY} -p ${bamboo.HMGTOOLS_PATH} -c ${bamboo.CLEAN} -t connect_wide)
+                export bamboo_BUILD_JOB_CONNECT_WIDE_RESULT=$buildJobResult
+                export bamboo_BUILD_JOB_CONNECT_WIDE_BUILD_NUMBER=124  # Replace with actual build number retrieval logic
+                
+                if [ "$buildJobResult" != "SUCCESS" ]; then
+                  echo "Build connect wide job failed!"
+                  exit 1
+                fi
+
+final-tasks:
+  - script:
+      interpreter: SHELL
+      scripts:
+        - |
+          # Determine overall build result
+          if [ "${bamboo_PRE_JOB_RESULT}" == "ABORTED" ] || [ "${bamboo_BUILD_JOB_CONNECT_STANDARD_RESULT}" == "ABORTED" ] || [ "${bamboo_BUILD_JOB_CONNECT_WIDE_RESULT}" == "ABORTED" ]; then
+            export bamboo_CURRENT_BUILD_RESULT="ABORTED"
+          elif [ "${bamboo_PRE_JOB_RESULT}" != "SUCCESS" ] || [ "${bamboo_BUILD_JOB_CONNECT_STANDARD_RESULT}" != "SUCCESS" ] || [ "${bamboo_BUILD_JOB_CONNECT_WIDE_RESULT}" != "SUCCESS" ]; then
+            export bamboo_CURRENT_BUILD_RESULT="FAILURE"
+            if [ "${bamboo_BUILD_JOB_CONNECT_STANDARD_RESULT}" == "FAILURE" ]; then
+              export bamboo_BUILD_JOB_NUMBER="${bamboo_BUILD_JOB_CONNECT_STANDARD_BUILD_NUMBER}"
+              export bamboo_FAIL_JOB_NAME="${bamboo_BUILD_JOB_NAME}"
+            elif [ "${bamboo_BUILD_JOB_CONNECT_WIDE_RESULT}" == "FAILURE" ]; then
+              export bamboo_BUILD_JOB_NUMBER="${bamboo_BUILD_JOB_CONNECT_WIDE_BUILD_NUMBER}"
+              export bamboo_FAIL_JOB_NAME="${bamboo_BUILD_JOB_NAME}"
+            fi
+          else
+            export bamboo_CURRENT_BUILD_RESULT="SUCCESS"
+          fi
+
+        - |
+          # Notify results
+          cd ${bamboo.HMGTOOLS_PATH}
+          ./ccc_result_notifier.py -t ${bamboo.JIRA_ISSUE_KEY} -j ${bamboo.FAIL_JOB_NAME} -n ${bamboo.BUILD_JOB_NUMBER} -o ${bamboo.OS_VERSION} -r ${bamboo.CURRENT_BUILD_RESULT}
+
+triggers:
+  - repository:
+      type: polling
+      pollingStrategy: PERIODIC
+      interval: '5'
