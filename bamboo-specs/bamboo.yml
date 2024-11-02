@@ -2,96 +2,134 @@
 version: 2
 plan:
   project-key: TKP
-  key: VAR
-  name: variable_test3
-  description: 변수 test용 plan
-stages:
-- working directory:
-    description: working directory
-    manual: false
-    final: false
-    jobs:
-    - Working Directory
-- Show Variable:
-    description: Show Variable
-    manual: false
-    final: false
-    jobs:
-    - Show Variable
-- Make Artifact:
-    manual: false
-    final: false
-    jobs:
-    - Make Artifact
-Working Directory:
-  key: JOB1
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########작업 Directory 경로 출력##########"
-        echo ${bamboo.build.working.directory}
-      description: working directory
-  artifact-subscriptions: []
-Show Variable:
-  key: SV
-  description: Show Variable
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########PROJECT 변수 출력##########"
-        echo ${bamboo.PROJECT}
-      description: Show Variable
-  artifact-subscriptions: []
-Create Artifact:  # 기존 Make Artifact 항목을 변경
-  key: BUILD  # key 변경
-  description: Create test.txt Artifact
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "This is a test file." > 	/atlassian/bamboo/data/test.txt
-      description: Create test.txt File
-  artifacts:
-    - name: Test Artifact
-      copy-pattern: "test.txt" 
-      location: "/atlassian/bamboo/data/"   
-  final-tasks:
-    - clean-working-directory    # 작업 디렉터리 정리
+  key: DAILY454
+  name: daily_integration_multi_target_hmgcp_14
+
 variables:
-  PROJECT: AD-A3-PKG-BF
-repositories: []
-# Remove line above if want to set repository with YAML file as primary repository of plan
-triggers: []
-branches:
-  create: manually
-  delete: never
-  link-to-jira: true
-notifications: []
-labels: []
-dependencies:
-  require-all-stages-passing: false
-  enabled-for-branches: true
-  block-strategy: none
-  plans: []
-other:
-  concurrent-build-plugin: system-default
----
-version: 2
-plan:
-  key: TKP-VAR
-plan-permissions:
-- users:
-  - ad
-  permissions:
-  - view
-  - edit
-  - build
-  - clone
-  - admin
-  - view-configuration
-...
+  HMGTOOLS_PATH: "/home/android.architect/hmgcp_tools/tools"
+  INTEGRATION_JOB_NAME: "daily_integration_hmgcp_14"
+  TARGETS: ["connect", "connect_wide"]
+  DEV_JOB_NAMES: ["daily_integration_hmgcp_14_dev_build", "daily_integration_hmgcp_14_dev_build"]
+  PREBUILTS_JOB_NAMES: ["daily_integration_hmgcp_14_prebuilts_build", "daily_integration_hmgcp_14_prebuilts_build"]
+  MANIFESTS: ["connect-standard", "connect-wide"]
+  DEV_ARTIFACTORIES: ["hmgop.common-artifacts", "hmgop.common-artifacts"]
+  PREBUILTS_ARTIFACTORIES: ["hmgop.connect-standard-artifacts", "hmgop.connect-wide-artifacts"]
+  NODE_NAMES: ["HMGOP-CI-10", "HMGOP-CI-11"]
+  NODE_IPS: ["172.17.121.99","172.17.122.13"]
+
+stages:
+  - Integration
+  - Build
+
+jobs:
+  - job:
+      key: INTEGRATION_SOURCE_CLEAN
+      name: Integration Source Clean
+      agent:
+        image: 'your-docker-image'  # Specify Docker image if needed
+      requirements:
+        - key: 'your-agent-requirements'  # Define specific agent requirements if necessary
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                if [[ "${bamboo.INTEGRATION_TYPE}" == *"clean"* ]]; then
+                  echo "## INTEGRATION_TYPE parameter contains clean (remove), starting clean ##"
+                  ./trigger_build.sh -j ${bamboo.INTEGRATION_JOB_NAME} -p INTEGRATION_TYPE=clean -p CUSTOM_WORKSPACE=${bamboo.INTEGRATION_PATH} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH}
+                fi
+
+  - job:
+      key: INTEGRATION_SOURCE_SYNC
+      name: Integration Source Sync
+      agent:
+        image: 'your-docker-image'
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                if [[ "${bamboo.INTEGRATION_TYPE}" == *"sync"* ]]; then
+                  echo "## INTEGRATION_TYPE parameter contains sync, starting init & sync ##"
+                  ./trigger_build.sh -j ${bamboo.INTEGRATION_JOB_NAME} -p INTEGRATION_TYPE=sync -p CUSTOM_WORKSPACE=${bamboo.INTEGRATION_PATH} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH}
+                fi
+
+  - job:
+      key: INTEGRATION_MERGE
+      name: Integration Merge CCC
+      agent:
+        image: 'your-docker-image'
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                if [[ "${bamboo.INTEGRATION_TYPE}" == *"merge"* ]]; then
+                  echo "## INTEGRATION_TYPE parameter contains merge, starting commit merge ##"
+                  ./trigger_build.sh -j ${bamboo.INTEGRATION_JOB_NAME} -p INTEGRATION_TYPE=merge -p CUSTOM_WORKSPACE=${bamboo.INTEGRATION_PATH} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH}
+                fi
+
+  - job:
+      key: INTEGRATION_DIFF
+      name: Integration Source Diff
+      agent:
+        image: 'your-docker-image'
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                if [[ "${bamboo.INTEGRATION_TYPE}" == *"diff"* ]]; then
+                  echo "## INTEGRATION_TYPE parameter contains diff, starting diff ##"
+                  ./trigger_build.sh -j ${bamboo.INTEGRATION_JOB_NAME} -p INTEGRATION_TYPE=diff -p CUSTOM_WORKSPACE=${bamboo.INTEGRATION_PATH} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH}
+                fi
+
+  - job:
+      key: BUILD_TARGETS
+      name: Target Build
+      agent:
+        image: 'your-docker-image'
+      parallelism: 2  # Bamboo allows up to 10 steps to run in parallel if permitted by the plan
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                echo "Starting target build for ${bamboo.TARGETS}"
+                
+                for i in ${!bamboo.TARGETS[@]}; do
+                  TARGET="${bamboo.TARGETS[$i]}"
+                  DEV_JOB_NAME="${bamboo.DEV_JOB_NAMES[$i]}"
+                  PREBUILTS_JOB_NAME="${bamboo.PREBUILTS_JOB_NAMES[$i]}"
+                  MANIFEST="${bamboo.MANIFESTS[$i]}"
+                  DEV_ARTIFACTORY="${bamboo.DEV_ARTIFACTORIES[$i]}"
+                  PREBUILTS_ARTIFACTORY="${bamboo.PREBUILTS_ARTIFACTORIES[$i]}"
+                  NODE_NAME="${bamboo.NODE_NAMES[$i]}"
+                  NODE_IP="${bamboo.NODE_IPS[$i]}"
+                  
+                  # Dev Build
+                  echo "Starting Dev Build - $TARGET"
+                  ./trigger_build.sh -j ${DEV_JOB_NAME} -p NODE=${NODE_NAME} -p CUSTOM_WORKSPACE="/home/android.architect/jenkins_build/${DEV_JOB_NAME}_${TARGET}" \
+                    -p BUILD_TYPE=${bamboo.BUILD_TYPE} -p MANIFEST=${MANIFEST} -p ARTIFACTORY=${DEV_ARTIFACTORY} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH} \
+                    -p INTEGRATION_SERVER_IP=${bamboo.INTEGRATION_SERVER_IP} -p INTEGRATION_SERVER_PATH=${bamboo.INTEGRATION_PATH} -p TARGET=${TARGET}
+                  
+                  # Prebuilts Build
+                  echo "Starting Prebuilts Build - $TARGET"
+                  ./trigger_build.sh -j ${PREBUILTS_JOB_NAME} -p NODE=${NODE_NAME} -p CUSTOM_WORKSPACE="/home/android.architect/jenkins_build/${PREBUILTS_JOB_NAME}_${TARGET}" \
+                    -p DI_DEV_PATH="/home/android.architect/jenkins_build/${DEV_JOB_NAME}_${TARGET}" -p BUILD_TYPE=${bamboo.BUILD_TYPE} \
+                    -p MANIFEST=${MANIFEST} -p ARTIFACTORY=${PREBUILTS_ARTIFACTORY} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH} \
+                    -p INTEGRATION_SERVER_IP=${bamboo.INTEGRATION_SERVER_IP} -p INTEGRATION_SERVER_PATH=${bamboo.INTEGRATION_PATH} -p TARGET=${TARGET}
+                done
+
+final-tasks:
+  - script:
+      interpreter: SHELL
+      scripts:
+        - |
+          if [[ "${bamboo.BUILD_TYPE}" == *"build"* ]]; then
+            echo "## BUILD_TYPE contains 'build', committing prebuilts to integration server ##"
+            ./trigger_build.sh -j ${bamboo.INTEGRATION_JOB_NAME} -p INTEGRATION_TYPE=prebuilts \
+              -p CUSTOM_WORKSPACE=${bamboo.INTEGRATION_PATH} -p PREBUILTS_BUILD_SERVER_PATH="/home/android.architect/jenkins_build/${bamboo.PREBUILTS_JOB_NAMES[0]}_${bamboo.TARGETS[0]}" \
+              -p PREBUILTS_BUILD_SERVER_IP=${bamboo.NODE_IPS[0]} -p HMGTOOLS_PATH=${bamboo.HMGTOOLS_PATH}
+          else
+            echo "## BUILD_TYPE does not contain 'build', skipping prebuilts step ##"
