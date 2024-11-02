@@ -2,96 +2,55 @@
 version: 2
 plan:
   project-key: TKP
-  key: VAR
-  name: variable_test3
-  description: 변수 test용 plan
-stages:
-- working directory:
-    description: working directory
-    manual: false
-    final: false
-    jobs:
-    - Working Directory
-- Show Variable:
-    description: Show Variable
-    manual: false
-    final: false
-    jobs:
-    - Show Variable
-- Make Artifact:
-    manual: false
-    final: false
-    jobs:
-    - Make Artifact
-Working Directory:
-  key: JOB1
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########작업 Directory 경로 출력##########"
-        echo ${bamboo.build.working.directory}
-      description: working directory
-  artifact-subscriptions: []
-Show Variable:
-  key: SV
-  description: Show Variable
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########PROJECT 변수 출력##########"
-        echo ${bamboo.PROJECT}
-      description: Show Variable
-  artifact-subscriptions: []
-Create Artifact:  # 기존 Make Artifact 항목을 변경
-  key: BUILD  # key 변경
-  description: Create test.txt Artifact
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "This is a test file." > 	/atlassian/bamboo/data/test.txt
-      description: Create test.txt File
-  artifacts:
-    - name: Test Artifact
-      copy-pattern: "test.txt" 
-      location: "/atlassian/bamboo/data/"   
-  final-tasks:
-    - clean-working-directory    # 작업 디렉터리 정리
+  key: NODE3434
+  name: node_test
+
 variables:
-  PROJECT: AD-A3-PKG-BF
-repositories: []
-# Remove line above if want to set repository with YAML file as primary repository of plan
-triggers: []
-branches:
-  create: manually
-  delete: never
-  link-to-jira: true
-notifications: []
-labels: []
-dependencies:
-  require-all-stages-passing: false
-  enabled-for-branches: true
-  block-strategy: none
-  plans: []
-other:
-  concurrent-build-plugin: system-default
----
-version: 2
-plan:
-  key: TKP-VAR
-plan-permissions:
-- users:
-  - ad
-  permissions:
-  - view
-  - edit
-  - build
-  - clone
-  - admin
-  - view-configuration
-...
+  NODELABEL: "master"  # Default value; Bamboo does not dynamically set nodes
+  ENV: "dev"  # Default environment value
+  TEST: "false"  # Default test trigger value
+
+stages:
+  - Build
+
+jobs:
+  - job:
+      key: PRINT_VALUES
+      name: Print Values Job
+      agent:
+        image: 'your-docker-image'  # Specify Docker image if needed
+      tasks:
+        - script:
+            interpreter: SHELL
+            scripts:
+              - |
+                echo "Trigger CI: ${bamboo.TEST}"
+                echo "Environment: ${bamboo.ENV}"
+                echo "Node name: ${bamboo.NODELABEL}"
+
+        - manual:
+            description: "Trigger CI tests"
+            enabled: "${bamboo.TEST}" == "true"
+            tasks:
+              - script:
+                  interpreter: SHELL
+                  scripts:
+                    - echo "Running CI tests..."
+
+triggers:
+  - repository:
+      type: polling
+      pollingStrategy: PERIODIC
+      interval: '5'
+
+parameters:
+  - name: ENV
+    type: choice
+    default: "dev"
+    options: ["dev", "prod"]
+    description: "Environment selection"
+
+  - name: TEST
+    type: boolean
+    default: false
+    description: "Trigger CI tests"
