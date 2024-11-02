@@ -2,96 +2,38 @@
 version: 2
 plan:
   project-key: TKP
-  key: VAR
-  name: variable_test3
-  description: 변수 test용 plan
+  key: test54
+  name: test_pipeline
+
 stages:
-- working directory:
-    description: working directory
-    manual: false
-    final: false
-    jobs:
-    - Working Directory
-- Show Variable:
-    description: Show Variable
-    manual: false
-    final: false
-    jobs:
-    - Show Variable
-- Make Artifact:
-    manual: false
-    final: false
-    jobs:
-    - Make Artifact
-Working Directory:
-  key: JOB1
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########작업 Directory 경로 출력##########"
-        echo ${bamboo.build.working.directory}
-      description: working directory
-  artifact-subscriptions: []
-Show Variable:
-  key: SV
-  description: Show Variable
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "##########PROJECT 변수 출력##########"
-        echo ${bamboo.PROJECT}
-      description: Show Variable
-  artifact-subscriptions: []
-Create Artifact:  # 기존 Make Artifact 항목을 변경
-  key: BUILD  # key 변경
-  description: Create test.txt Artifact
-  tasks:
-  - script:
-      interpreter: SHELL
-      scripts:
-      - |-
-        echo "This is a test file." > 	/atlassian/bamboo/data/test.txt
-      description: Create test.txt File
-  artifacts:
-    - name: Test Artifact
-      copy-pattern: "test.txt" 
-      location: "/atlassian/bamboo/data/"   
-  final-tasks:
-    - clean-working-directory    # 작업 디렉터리 정리
+  - Build
+
+jobs:
+  - job:
+      key: BUILD
+      name: Build Job
+      agent:
+        image: 'your-docker-image'  # Replace with a specific Docker image if needed
+      requirements:
+        - key: 'your-agent-requirements'  # Define specific agent requirements if necessary
+
+      tasks:
+        - script:
+            - echo "Job Name: ${bamboo.buildPlanName}"
+            - echo "Branch Name: ${bamboo.planRepository.branch}"
+            - echo "GIT Committer: ${bamboo.repository.git.username}"  # Adjust if variables differ
+            - echo "GIT Author: ${bamboo.repository.git.author}"  # Adjust if variables differ
+
+        - artifact-download:
+            name: Your Artifact Name
+            destination: "./"  # Adjust as needed
+
+triggers:
+  - repository:  # This triggers builds on repository changes
+      type: polling
+      pollingStrategy: PERIODIC
+      interval: '5'  # Check for changes every 5 minutes
+
 variables:
-  PROJECT: AD-A3-PKG-BF
-repositories: []
-# Remove line above if want to set repository with YAML file as primary repository of plan
-triggers: []
-branches:
-  create: manually
-  delete: never
-  link-to-jira: true
-notifications: []
-labels: []
-dependencies:
-  require-all-stages-passing: false
-  enabled-for-branches: true
-  block-strategy: none
-  plans: []
-other:
-  concurrent-build-plugin: system-default
----
-version: 2
-plan:
-  key: TKP-VAR
-plan-permissions:
-- users:
-  - ad
-  permissions:
-  - view
-  - edit
-  - build
-  - clone
-  - admin
-  - view-configuration
-...
+  branch_name: "${bamboo.planRepository.branch}"  # Define any additional needed variables
+  token: 'test_token'  # Adjust your secret token as needed
